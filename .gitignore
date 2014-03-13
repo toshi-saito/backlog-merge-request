@@ -1,0 +1,6 @@
+.DS_Store
+db
+repos
+config/config.json
+*.pyc
+
