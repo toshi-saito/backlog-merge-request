@@ -26,7 +26,6 @@ def index():
 def new():
   b = createBacklog()
   projects = b.get_projects()
-  print projects
   return template('view/new.html', projects=projects)
 
 @route('/create', method='POST')
