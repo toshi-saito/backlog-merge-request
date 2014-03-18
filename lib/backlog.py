@@ -18,3 +18,7 @@ class Backlog:
 
   def add_comment(self, key, comment):
     self.proxy.backlog.addComment({"key":key, "content": comment})
+
+  def is_closed(self, key):
+    res = self.proxy.backlog.getIssue(key)
+    return res["status"]["id"] == 4

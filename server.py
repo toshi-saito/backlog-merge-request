@@ -18,6 +18,10 @@ def createBacklog():
   bl = data["backlog"]
   return Backlog(bl["space"], bl["user_id"], bl["password"])
 
+@route("/")
+def index():
+  redirect("/new")
+
 @route('/new')
 def new():
   b = createBacklog()

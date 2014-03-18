@@ -26,13 +26,21 @@ backlog = Backlog(bl["space"], bl["user_id"], bl["password"])
 
 db = Db(db_path, "requests.db")
 
-def overwrite_requests(row):
+def overwrite_row(row):
   data = db.load()
   nd = [];
   for r in data:
     if r["issue"] == row["issue"]:
       nd.append(row)
     else:
+      nd.append(r)
+  db.save(nd)
+
+def remove_row(row):
+  data = db.load()
+  nd = [];
+  for r in data:
+    if r["issue"] != row["issue"]:
       nd.append(r)
   db.save(nd)
 
@@ -43,7 +51,6 @@ def head(path):
 def kval(h, key):
   return key in h and h[key]
 
-
 def writeDiffComments(path, row):
   log = commands.getoutput("cd %s && git log --oneline" % (path))
   logs = log.split("\n")
@@ -53,10 +60,8 @@ def writeDiffComments(path, row):
     if v.startswith(row["head"]):
       break;
     wl.append(v)
-  print wl
   wl.reverse()
   lhash = row["head"]
-  print wl
   for v in wl:
     print "add comment: " + v
     h = re.sub(r' .*$', "", v)
@@ -68,10 +73,18 @@ def writeDiffComments(path, row):
 data = db.load()
 for row in data:
   rpath = "%s/repos/%s" % (base_path, row["issue"])
+
+  # 課題がclosedになっていたら監視をやめる
+  if (backlog.is_closed(row["issue"])):
+    commands.getoutput("rm -rf %s" % (rpath))
+    remove_row(row)
+    continue
+
+  # cloneされていなければcloneする。
   if not kval(row, "cloned") and not kval(row, "cloning"):
     print "cloning " + row["issue"] + " ..."
     row["cloning"] = True
-    overwrite_requests(row)
+    overwrite_row(row)
     repo = re.sub(r'^https:\/\/', "https://%s:%s@" % (bl["user_id"], bl["password"]), row["repo"])
     commands.getoutput("git clone %s %s" % (repo, rpath))
     commands.getoutput("cd %s && git fetch" % (rpath))
@@ -81,21 +94,22 @@ for row in data:
     backlog.add_comment(row["issue"], comment)
     row["cloning"] = False
     row["cloned"] = True
-    overwrite_requests(row)
-    continue;
+    overwrite_row(row)
+    continue
+
+  # clone済みならgit pullして差分をコメント
   if kval(row, "cloned") and not kval(row, "fetching"):
     print "fetching " + row["issue"] + " ..."
     row["fetching"] = True
-    overwrite_requests(row)
-    if not "head" in row:
-      row["head"] = head(rpath)
-    print "current head: "+ row["head"]
-    overwrite_requests(row)
+    overwrite_row(row)
+    row["head"] = head(rpath)
+    print "current head: " + row["head"]
+    overwrite_row(row)
     commands.getoutput("cd %s && git pull origin %s" % (rpath, row["branch"]))
     head = head(rpath)
-    print "fetched. current head: "+ head
+    print "fetched.\ncurrent head: " + head
     if head != row["head"]:
       writeDiffComments(rpath, row)
     row["fetching"] = False
-    overwrite_requests(row)
+    overwrite_row(row)
 
